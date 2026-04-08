@@ -1,9 +1,10 @@
-Lf---
+---
 name: letagentpay
 description: Spending guardrails for AI agents — budget limits, category restrictions, approval workflows, and audit trails for every purchase.
 version: 1.0.0
+homepage: https://github.com/LetAgentPay/letagentpay-openclaw
 metadata:
-  openclaw:
+  clawdbot:
     emoji: "💰"
     requires:
       env:
@@ -14,7 +15,6 @@ metadata:
         - npx
         - bunx
     primaryEnv: LETAGENTPAY_TOKEN
-    homepage: https://letagentpay.com
 ---
 
 # LetAgentPay — Spending Policy Middleware
