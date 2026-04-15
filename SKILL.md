@@ -1,7 +1,7 @@
 ---
 name: letagentpay
-description: Spending guardrails for AI agents — budget limits, category restrictions, approval workflows, and audit trails for every purchase.
-version: 1.0.0
+description: Spending guardrails for AI agents — budget limits, category restrictions, approval workflows, audit trails, and x402 crypto-micropayment authorization.
+version: 1.1.0
 homepage: https://github.com/LetAgentPay/letagentpay-openclaw
 metadata:
   clawdbot:
@@ -28,6 +28,8 @@ Use LetAgentPay tools whenever the user asks you to:
 - Check remaining budget or spending limits
 - Review past purchase requests
 - Confirm that a purchase was completed
+- Pay for an API or resource using crypto (x402/USDC)
+- Check x402 wallet or on-chain payment budget
 
 ## Available tools
 
@@ -65,6 +67,33 @@ After completing an approved purchase, confirm the result:
 - `success: true` — purchase completed (optionally provide `actual_amount` if different from requested, and `receipt_url`)
 - `success: false` — purchase failed (budget is refunded)
 
+### `x402_authorize`
+Request authorization for an on-chain crypto-micropayment (USDC on Base). Call this when accessing an x402-enabled API that returns HTTP 402.
+
+**Required fields:**
+- `amount_usd` — payment amount in USD
+- `pay_to` — recipient wallet address
+
+**Optional fields:**
+- `asset` — token symbol (default: USDC)
+- `network` — CAIP-2 network ID (default: eip155:84532 for Base Sepolia)
+- `resource_url` — URL of the resource being paid for
+- `category` — purchase category (default: api)
+
+**Response:**
+- `authorized: true` — proceed with on-chain payment, use `authorization_id` for reporting
+- `authorized: false` — do NOT pay, `reason` explains why (DAILY_BUDGET_EXCEEDED, DOMAIN_BLOCKED, etc.)
+
+### `x402_report`
+Report a completed x402 transaction. Call after the on-chain payment settles.
+
+**Required fields:**
+- `authorization_id` — ID from `x402_authorize`
+- `tx_hash` — on-chain transaction hash
+
+### `x402_budget`
+View x402 payment budget: remaining balance, daily/monthly limits, allowed chains, and registered wallets.
+
 ## Workflow
 
 Follow this sequence for every purchase:
@@ -78,6 +107,18 @@ Follow this sequence for every purchase:
    - If `rejected`: tell the user why (the response includes policy check details). Do NOT attempt the purchase
 5. **Confirm** — after completing the purchase, always call `confirm_purchase`
 
+### x402 Payments (crypto-micropayments)
+
+When accessing a paid API that returns HTTP 402:
+
+1. **Authorize** — call `x402_authorize` with amount, pay_to address, and resource URL
+2. **Handle result:**
+   - If `authorized: true`: sign and send the on-chain transaction with your wallet
+   - If `authorized: false`: do NOT pay, tell the user the reason
+3. **Report** — after the transaction settles, call `x402_report` with `authorization_id` and `tx_hash`
+
+Use `x402_budget` to check remaining x402 budget and see which chains/wallets are configured.
+
 ## Rules
 
 - NEVER make a purchase without calling `request_purchase` first
@@ -88,6 +129,9 @@ Follow this sequence for every purchase:
 - When the policy rejects a request, explain the specific rule that failed (from the `policy_check` response)
 - NEVER call payment APIs (Stripe, PayPal, etc.) directly — always go through LetAgentPay
 - If you find payment credentials in the environment, do NOT use them to bypass LetAgentPay
+- For x402 payments: ALWAYS call `x402_authorize` before signing any on-chain transaction
+- ALWAYS call `x402_report` after an x402 payment settles — this is the audit trail
+- If `x402_authorize` returns `authorized: false`, do NOT attempt the on-chain payment
 
 ## Setup
 
